@@ -22,7 +22,8 @@ void(async(): Promise<void> => {
     privateKey: config.PRIVATE_KEY,
   })
 
-  app.eachInstallation(async({ octokit, installation }) => {
-    console.log(installation)
-  })
+  const INSTALLATION_ID = 41681620 // shippix-srl Installation Id
+  const repos = await(await app!.getInstallationOctokit(INSTALLATION_ID)).rest.repos.listForOrg({ org: "shippix-srl" })
+
+  console.log(repos)
 })()

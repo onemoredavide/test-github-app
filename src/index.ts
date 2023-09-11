@@ -1,29 +1,40 @@
 import dotenv from "dotenv"
 import { App } from "octokit"
 import * as fs from "fs"
+import { initGithubConnections } from "./helpers"
+import { join } from "path"
 
-const { parsed: config } = dotenv.config({ path: ".env" }) as { parsed: { [key: string]: string } }
+const { parsed: config } = dotenv.config({ path: join(__dirname, "../.env") }) as { parsed: any }
+
+const {
+  APP_ID,
+  PRIVATE_KEY_PATH,
+  SHIPPIX_INSTALLATION_ACCOUNT,
+  CLIENT_INSTALLATION_ACCOUNT
+} = config
 
 void(async(): Promise<void> => {
-  const privateKeyPath = config.PRIVATE_KEY_PATH
-
-  if (!config.APP_ID) {
-    throw "APP_ID is not defined in .env"
+  if (!APP_ID || !PRIVATE_KEY_PATH || !SHIPPIX_INSTALLATION_ACCOUNT || !CLIENT_INSTALLATION_ACCOUNT) {
+    throw new Error("Invalid .env configuration")
   }
 
-  if (privateKeyPath) {
-    config.PRIVATE_KEY = fs.readFileSync(privateKeyPath, "utf8")
-  } else {
-    throw "PRIVATE_KEY_PATH is not defined in .env"
-  }
+  const privateKey = fs.readFileSync(PRIVATE_KEY_PATH, "utf8")
 
   const app = new App({
-    appId: config.APP_ID,
-    privateKey: config.PRIVATE_KEY,
+    appId: APP_ID,
+    privateKey
   })
 
-  const INSTALLATION_ID = 41681620 // shippix-srl Installation Id
-  const repos = await(await app!.getInstallationOctokit(INSTALLATION_ID)).rest.repos.listForOrg({ org: "shippix-srl" })
+  const {
+    [SHIPPIX_INSTALLATION_ACCOUNT]: shippixConnection,
+    [CLIENT_INSTALLATION_ACCOUNT]: clientConnection
+  } = await initGithubConnections({ accounts: [SHIPPIX_INSTALLATION_ACCOUNT, CLIENT_INSTALLATION_ACCOUNT], app })
 
-  console.log(repos)
+  const availableCustomerRepositories = await clientConnection.listAccessibleRepositories()
+  console.log(`######     AVAILABLE REPOSITORIES FOR ${CLIENT_INSTALLATION_ACCOUNT}:    ######`)
+  console.log(availableCustomerRepositories)
+
+  const managedRepositories = await shippixConnection.listAccessibleRepositories()
+  console.log(`######      MANAGED REPOSITORIES (${SHIPPIX_INSTALLATION_ACCOUNT}):      ######`)
+  console.log(managedRepositories)
 })()
